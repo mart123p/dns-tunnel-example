@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -74,6 +75,10 @@ func handleCommands(commandChan chan string, responseChan chan []byte) {
 
 //Converts the command into an executable command
 func createCommand(args []string) *exec.Cmd {
+	if runtime.GOOS == "windows" {
+		args = append([]string{"cmd", "/C"}, args...)
+	}
+	fmt.Println(args)
 	var cmd *exec.Cmd
 	if len(args) > 1 {
 		cmd = exec.Command(args[0], args[1:]...)
