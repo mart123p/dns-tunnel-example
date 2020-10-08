@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/nicksnyder/basen"
+	"github.com/btcsuite/btcutil/base58"
 	"log"
 	"net"
 	"os/exec"
@@ -107,7 +107,7 @@ func encodeRequests(cmdOutput []byte) []string {
 	//Bytes for the current level (max 32)
 	var levelBytes []byte
 	//Number of levels
-	var nLevels uint16
+	var nLevels uint16 = 0
 	for i := 0; i < len(cmdOutput); i++ {
 		if nLevels%3 == 0 && len(levelBytes) == 0 {
 			if nLevels != 0 {
@@ -126,7 +126,7 @@ func encodeRequests(cmdOutput []byte) []string {
 			if len(cmdOutput)-i < (32*3 - 2) {
 				bytes[0] = bytes[0] | 128
 			}
-			//fmt.Printf("% b", bytes)
+
 			levelBytes = append(levelBytes, bytes...)
 		}
 		//add the current byte
@@ -135,7 +135,7 @@ func encodeRequests(cmdOutput []byte) []string {
 			log.Fatal("The maximum number of byte per level is 32")
 		} else if len(levelBytes) == 32 {
 			//Encode the current level
-			builder.WriteString(basen.Base62Encoding.EncodeToString(levelBytes))
+			builder.WriteString(base58.Encode(levelBytes))
 			builder.WriteString(".")
 			levelBytes = levelBytes[:0]
 			nLevels++
@@ -143,7 +143,7 @@ func encodeRequests(cmdOutput []byte) []string {
 
 	}
 	if len(levelBytes) > 0 {
-		builder.WriteString(basen.Base62Encoding.EncodeToString(levelBytes))
+		builder.WriteString(base58.Encode(levelBytes))
 		builder.WriteString(".")
 	}
 	builder.WriteString("out.example.com")
