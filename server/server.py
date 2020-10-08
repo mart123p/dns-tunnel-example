@@ -26,14 +26,14 @@ class TunnelResolver(BaseResolver):
             except queue.Empty:
                 command_txt = ""
             reply.add_answer(*RR.fromZone("{} 60 IN TXT \"{}\"".format(qname, command_txt)))
-        elif ("out." + domain + ".") in qstr:
+        elif request.q.qtype == 1 and ("out." + domain + ".") in qstr:
             self.__parse_out(qstr)
         return reply
 
     """
     Parse the response for the client
-    They are blocks of 32 bytes per level with a maximum of 3 level. The data is encoded in 
-    the response using base62. The two first bytes are used as the seq number. The Msb bit 
+    They are blocks of 32 bytes per level with a maximum of 3 level. The data is encoded in
+    the response using base62. The two first bytes are used as the seq number. The Msb bit
     for the first byte is used to indicate that this is the last packet for the response.
     """
     def __parse_out(self, request):
@@ -134,5 +134,5 @@ if args.tcp:
 
 while udp_server.isAlive():
     command = input("$ ")
-    if len(command) <= 255:
+    if len(command) <= 255 and len(command) > 0:
         q_commands.put(command)
