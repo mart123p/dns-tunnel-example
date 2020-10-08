@@ -3,7 +3,7 @@ from dnslib.server import DNSServer, BaseResolver, DNSLogger
 import argparse
 import queue
 import struct
-import base62
+import base58
 
 domain = "example.com"
 q_commands = queue.Queue()
@@ -33,7 +33,7 @@ class TunnelResolver(BaseResolver):
     """
     Parse the response for the client
     They are blocks of 32 bytes per level with a maximum of 3 level. The data is encoded in 
-    the response using base62. The two first bytes are used as the seq number. The Msb bit 
+    the response using base58. The two first bytes are used as the seq number. The Msb bit 
     for the first byte is used to indicate that this is the last packet for the response.
     """
     def __parse_out(self, request):
@@ -47,8 +47,8 @@ class TunnelResolver(BaseResolver):
         correct_order = False
         response_buffer = []
         for i, block in enumerate(data_block):
-            # Base62 decode
-            block_decoded = base62.decodebytes(block)
+            # Base58 decode
+            block_decoded = base58.b58decode(block)
             if i == 0:
                 last_packet, seq_num, data = self.__parse_first_block(block_decoded)
                 if last_packet:
