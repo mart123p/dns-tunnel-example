@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/btcsuite/btcutil/base58"
 	"log"
 	"net"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/btcsuite/btcutil/base58"
 )
 
 func main() {
