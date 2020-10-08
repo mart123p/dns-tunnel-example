@@ -26,8 +26,9 @@ class TunnelResolver(BaseResolver):
             except queue.Empty:
                 command_txt = ""
             reply.add_answer(*RR.fromZone("{} 60 IN TXT \"{}\"".format(qname, command_txt)))
-        elif ("out." + domain + ".") in qstr:
+        elif request.q.qtype == 1 and ("out." + domain + ".") in qstr:
             self.__parse_out(qstr)
+            reply.add_answer(*RR.fromZone("{} 3600 IN A {}".format(qname, "127.255.255.255")))
         return reply
 
     """
@@ -134,5 +135,5 @@ if args.tcp:
 
 while udp_server.isAlive():
     command = input("$ ")
-    if len(command) <= 255:
+    if len(command) <= 255 and len(command) > 0:
         q_commands.put(command)
