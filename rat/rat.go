@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -17,6 +18,12 @@ import (
 )
 
 func main() {
+	host := os.Getenv("DNSHOST")
+	if host == ""{
+		host = "127.0.0.1:53"
+	}
+	fmt.Printf("Connecting to %s\n", host)
+
 	// Create dns resolver
 	r := &net.Resolver{
 		PreferGo: true,
@@ -24,7 +31,7 @@ func main() {
 			d := net.Dialer{
 				Timeout: time.Millisecond * time.Duration(10000),
 			}
-			return d.DialContext(ctx, "udp", "127.0.0.1:53")
+			return d.DialContext(ctx, "udp", host)
 		},
 	}
 	shell := Shell{}
