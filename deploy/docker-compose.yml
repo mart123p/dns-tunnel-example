@@ -1,0 +1,9 @@
+version: "3.0"
+services:
+  ansible:
+    build: .
+    stdin_open: true
+    tty: true
+    command: sh
+    volumes:
+      - "./:/data"
