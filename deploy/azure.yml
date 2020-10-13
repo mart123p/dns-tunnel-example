@@ -9,6 +9,6 @@
     ssh_key: "{{ lookup('file', 'vm-linux/files/id_rsa.pub') }}"
 
   roles:
-    - network
-    - vm-linux
-    - vm-win
+    - az-network
+    - az-vm-linux
+    - az-vm-win
