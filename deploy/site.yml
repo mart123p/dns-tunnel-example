@@ -1,0 +1,14 @@
+---
+- name: Deploy the demo environnement in Azure
+  hosts: localhost
+  connection: local
+
+  vars:
+    resource_group: dns-tunneling-demo
+    region: canadaeast
+    ssh_key: "{{ lookup('file', 'vm-linux/files/id_rsa.pub') }}"
+
+  roles:
+    - network
+    - vm-linux
+    - vm-win

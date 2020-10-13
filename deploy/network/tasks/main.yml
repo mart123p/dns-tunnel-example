@@ -1,0 +1,92 @@
+---
+- name: Create resource group
+  azure_rm_resourcegroup:
+    name: "{{ resource_group }}"
+    location: canadaeast
+
+- name: Create virtual network
+  azure_rm_virtualnetwork:
+    resource_group: "{{ resource_group }}"
+    name: vnet
+    address_prefixes_cidr: "10.0.0.0/16"
+
+- name: Create Network Security Group inter subnets
+  azure_rm_securitygroup:
+    resource_group: "{{ resource_group }}"
+    name: nsg-vnet
+    rules:
+      - name: DenyVmExternal
+        protocol: "*"
+        access: "Deny"
+        priority: 100
+        direction: Inbound
+        source_address_prefix: "10.0.5.0/24"
+
+- name: Create internal subnet
+  azure_rm_subnet:
+    resource_group: "{{ resource_group }}"
+    name: vnet-internal
+    address_prefix_cidr: "10.0.0.0/24"
+    virtual_network: vnet
+    security_group: nsg-vnet
+
+- name: Create external subnet
+  azure_rm_subnet:
+    resource_group: "{{ resource_group }}"
+    name: vnet-external
+    address_prefix_cidr: "10.0.5.0/24"
+    virtual_network: vnet
+    security_group: nsg-vnet
+
+- name: Create public IP address
+  azure_rm_publicipaddress:
+    resource_group: "{{ resource_group }}"
+    allocation_method: Static
+    name: public-ip
+  register: output_ip
+
+- name: Output public IP
+  debug:
+    msg: "The public IP is {{ output_ip.state.ip_address }}"
+
+- name: Create network interfaces (3)
+  azure_rm_networkinterface:
+    resource_group: "{{ resource_group }}"
+    name: "{{ item.name }}"
+    virtual_network: vnet
+    subnet_name: "{{ item.subnet }}"
+    create_with_security_group: no
+    ip_configurations:
+      - name: default
+        private_ip_allocation_method: Dynamic
+  loop:
+    - {name: 'nic-internal1', subnet: 'vnet-internal'}
+    - {name: 'nic-internal2', subnet: 'vnet-internal'}
+    - {name: 'nic-external', subnet: 'vnet-external'}
+    
+- name: Create network interface for Bastation
+  azure_rm_networkinterface:
+    resource_group: "{{ resource_group }}"
+    name: nic-internal3
+    virtual_network: vnet
+    subnet_name: vnet-internal
+    ip_configurations:
+      - name: default
+        public_ip_address_name: public-ip
+        primary: True
+      - name: private
+        private_ip_allocation_method: Dynamic
+  register: output_nic_internal3
+
+- name: Add SSH rule Bastation to nsg-vnet
+  azure_rm_securitygroup:
+    resource_group: "{{ resource_group }}"
+    name: nsg-vnet
+    rules:
+      - name: AllowSSHBastation
+        protocol: "*"
+        access: "Allow"
+        priority: 110
+        direction: Inbound
+        destination_address_prefix: "{{ output_nic_internal3.state.ip_configurations[0].private_ip_address }}"
+        destination_port_range: 22

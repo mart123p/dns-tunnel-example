@@ -1,0 +1,18 @@
+---
+- name: Create VMs Windows
+  azure_rm_virtualmachine:
+    resource_group: "{{ resource_group }}"
+    name: "{{ item.name }}"
+    vm_size: Standard_B2s
+    admin_username: azureuser
+    admin_password: "{{ lookup('password', 'creds/' + item.name +' length=20') }}"
+    network_interfaces: "{{ item.nic }}"
+    os_type: Windows
+    image:
+      offer: WindowsServer
+      publisher: MicrosoftWindowsServer
+      sku: 2019-Datacenter
+      version: latest
+  loop:
+    - {name: vm-win-dc, nic: nic-internal1}
+    - {name: vm-win-host1, nic: nic-internal2}
