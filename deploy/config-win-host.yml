@@ -1,6 +1,6 @@
 ---
 - name: Config the host to its requiered state
-  hosts: win-host
+  hosts: win_host
 
   vars:
     domain_name: example.com

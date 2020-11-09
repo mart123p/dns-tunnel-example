@@ -1,6 +1,6 @@
 ---
 - name: Config the DC to its requiered state
-  hosts: win-dc
+  hosts: win_dc
 
   vars:
     domain_name: example.com
