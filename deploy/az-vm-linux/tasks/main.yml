@@ -3,7 +3,7 @@
   azure_rm_virtualmachine:
     resource_group: "{{ resource_group }}"
     name: "{{ item.name }}"
-    vm_size: Standard_B1s
+    vm_size: Standard_B1ls
     admin_username: azureuser
     ssh_password_enabled: no
     ssh_public_keys:
