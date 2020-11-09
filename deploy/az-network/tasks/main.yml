@@ -49,6 +49,11 @@
   debug:
     msg: "The public IP is {{ output_ip.state.ip_address }}"
 
+- name: Export IP Address
+  copy:
+    content: "{{ output_ip.state.ip_address }}"
+    dest: "creds/ip"
+
 - name: Create network interfaces (3)
   azure_rm_networkinterface:
     resource_group: "{{ resource_group }}"
