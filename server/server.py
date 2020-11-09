@@ -114,7 +114,7 @@ class TunnelResolver(BaseResolver):
         for i in range(self.__seq_num + 1):
             if i in self.__buffer:
                 if args.windows:
-                    print_buffer(self.__buffer[i].decode("cp1252").replace("\r\n","\n"))
+                    print_buffer(self.__buffer[i].decode("cp1252").replace("\r",""))
                 else:
                     print_buffer(self.__buffer[i].decode("ascii"))
             else:
