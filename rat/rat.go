@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -95,10 +94,7 @@ func (s *Shell) FetchStdin(r *net.Resolver) {
 					children, err := parent.Children()
 					if err == nil {
 						for _, child := range children {
-							if runtime.GOOS == "windows"{
-								child.Terminate()
-							}
-							syscall.Kill(int(child.Pid), syscall.SIGINT)
+							child.Terminate()
 						}
 					}
 				}
