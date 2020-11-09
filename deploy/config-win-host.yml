@@ -19,4 +19,12 @@
         pre_reboot_delay: 15
       when: ad.changed
 
-   #TODO add a dummy file
+    - name: Copy RAT files
+      win_copy:
+        src: files/rat.exe
+        dest: "C:\\Demo\\rat.exe"
+      
+    - name: Copy secret file
+      win_copy:
+        src: files/secret.txt
+        dest: "C:\\confidential\\acquisition.txt"
