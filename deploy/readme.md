@@ -6,4 +6,6 @@ Quickly deploy a demo environnement on Azure.
 
 2. Deploy the environnement in Azure with Ansible you can use the docker-compose.yml if Ansible has issue with the dependencies. You must be connected to azure with the `az login` before executing `ansible-playbook azure.yml`
 
+3. Connect to the bastion with the script in `scripts/connect.sh`
+
 3. Deploy the VMs `ansible-playbook config-all.yml -i hosts.yml`
