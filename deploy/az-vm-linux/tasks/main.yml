@@ -16,6 +16,8 @@
       publisher: Canonical
       sku: 18.04-LTS
       version: latest
+  async: 300
+  poll: 5
   loop:
     - {name: vm-linux-bastation, nic: nic-internal3}
     - {name: vm-linux-dns, nic: nic-external}

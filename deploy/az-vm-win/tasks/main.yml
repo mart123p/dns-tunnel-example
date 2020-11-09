@@ -13,6 +13,8 @@
       publisher: MicrosoftWindowsServer
       sku: 2019-Datacenter
       version: latest
+  async: 300
+  poll: 5
   loop:
     - {name: vm-win-dc, nic: nic-internal1}
     - {name: vm-win-host1, nic: nic-internal2}

@@ -1,4 +1,4 @@
 ---
+  - import_playbook: "config-linux.yml"
   - import_playbook: "config-win-dc.yml"
   - import_playbook: "config-win-host.yml"
-  - import_playbook: "config-linux.yml"
