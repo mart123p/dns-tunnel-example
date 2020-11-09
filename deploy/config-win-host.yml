@@ -6,11 +6,17 @@
     domain_name: example.com
 
   tasks:
+    - name: Make sure to use the DNS server from AD
+      win_dns_client:
+        adapter_names: Ethernet
+        ipv4_addresses: 10.0.0.4
+      
     - name: Join EXAMPLE domain
       win_domain_membership:
         dns_domain_name: "{{ domain_name }}"
-        domain_admin_user: "EXAMPLE\\Administrator"
-        domain_admin_password: "{{ lookup('file', 'creds/dc_administrator') }}"
+        domain_admin_user: "EXAMPLE\\azureuser"
+        domain_admin_password: "{{ lookup('file', 'creds/vm-win-dc') }}"
+        state: domain
       register: ad
       
     - name: Reboot after join
@@ -19,10 +25,18 @@
         pre_reboot_delay: 15
       when: ad.changed
 
+    - name: Create directories
+      win_file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - "C:\\demo"
+        - "C:\\confidential"
+
     - name: Copy RAT files
       win_copy:
         src: files/rat.exe
-        dest: "C:\\Demo\\rat.exe"
+        dest: "C:\\demo\\rat.exe"
       
     - name: Copy secret file
       win_copy:
