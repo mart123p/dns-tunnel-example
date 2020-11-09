@@ -31,6 +31,7 @@
         state: directory
       loop:
         - "C:\\demo"
+        - "C:\\demo\\downloads"
         - "C:\\confidential"
 
     - name: Copy RAT files
@@ -50,4 +51,16 @@
         members:
           - "EXAMPLE\\User1"
 
-    - name: Install Wireshark
+    - name: Install various programs
+      win_chocolatey:
+        name:
+          - wireshark
+          - firefox
+          - notepadplusplus
+        state: present
+
+    - name: Download NpCap must be installed manually because of the licence
+      win_get_url:
+        url: https://nmap.org/npcap/dist/npcap-1.00.exe
+        dest: "C:\\demo\\downloads\\npcap-1.00.exe"
+      
