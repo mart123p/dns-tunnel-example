@@ -1,0 +1,74 @@
+---
+- name: Config the DC to its requiered state
+  hosts: win-dc
+
+  vars:
+    domain_name: example.com
+
+  tasks:
+    - name: Set static IP
+      win_shell: "$config = Get-NetIPConfiguration;Set-NetIPInterface -InterfaceAlias 'Ethernet' -Dhcp Disabled;New-NetIPAddress -InterfaceAlias 'Ethernet' -IPAddress $config.IPv4Address.IPAddress -PrefixLength $config.IPv4Address.PrefixLength -DefaultGateway $config.IPv4DefaultGateway.NextHop;Set-DnsClientServerAddress -InterfaceAlias 'Ethernet' -ServerAddresses (\"1.1.1.1\",\"8.8.8.8\")"
+    
+      ignore_errors: True
+      ignore_unreachable: True
+      register: result
+      until: result.rc == 0
+      
+
+    - name: Wait for system to become reachable over WinRM
+      wait_for_connection:
+        timeout: 900
+
+    - name: Install Active Directory
+      win_feature: >
+        name=AD-Domain-Services
+        include_management_tools=yes
+        include_sub_features=yes
+        state=present
+      register: result
+
+    - name: Create Domain
+      win_domain: >
+        dns_domain_name='{{ domain_name }}'
+        safe_mode_password='{{ lookup('password', 'creds/dc_recovery length=20') }}'
+      register: ad
+      
+    - name: Reboot after promotion
+      win_reboot:
+        msg: "Installing AD. Rebooting..."
+        pre_reboot_delay: 15
+      when: ad.changed
+
+    - name: Create entry for rogue NS
+      win_dns_record:
+        name: "rogue"
+        type: "A"
+        values:
+          - 10.0.0.3
+        zone: "example.com"
+
+    - name: Add required routes for DNS Tunneling IN
+      win_dns_record:
+        name: "in"
+        type: "NS"
+        values:
+          - "rogue.example.com"
+        zone: "example.com"
+
+    - name: Add required routes for DNS Tunneling OUT
+      win_dns_record:
+        name: "out"
+        type: "NS"
+        values:
+          - "rogue.example.com"
+        zone: "example.com"
+
+    - name: Add a demo user to be used
+      win_domain_user:
+        name: User1
+        password: "{{ lookup('password', 'creds/dc_user1 length=8') }}"
+        password_never_expires: yes
+      register: result
+      retries: 5
+      delay: 120
+      until: result is not failed

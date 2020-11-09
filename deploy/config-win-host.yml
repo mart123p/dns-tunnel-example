@@ -1,0 +1,22 @@
+---
+- name: Config the host to its requiered state
+  hosts: win-host
+
+  vars:
+    domain_name: example.com
+
+  tasks:
+    - name: Join EXAMPLE domain
+      win_domain_membership:
+        dns_domain_name: "{{ domain_name }}"
+        domain_admin_user: "EXAMPLE\\Administrator"
+        domain_admin_password: "{{ lookup('file', 'creds/dc_administrator') }}"
+      register: ad
+      
+    - name: Reboot after join
+      win_reboot:
+        msg: "Joining AD. Rebooting..."
+        pre_reboot_delay: 15
+      when: ad.changed
+
+   #TODO add a dummy file
