@@ -95,12 +95,3 @@
         direction: Inbound
         destination_address_prefix: "{{ output_nic_internal3.state.ip_configurations[0].private_ip_address }}"
         destination_port_range: 22
-
-- name: Create Storage Account for Captures
-  azure_rm_storageaccount:
-    resource_group: "{{ resource_group }}"
-    name: inf8402a2020captures
-    account_type: "Standard_LRS"
-    allow_blob_public_access: no
-    https_only: yes
-    minimum_tls_version: TLS1_2
