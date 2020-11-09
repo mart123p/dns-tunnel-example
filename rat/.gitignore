@@ -5,6 +5,7 @@
 ### Go ###
 # Binaries for programs and plugins
 rat
+bin/*
 *.exe
 *.exe~
 *.dll
