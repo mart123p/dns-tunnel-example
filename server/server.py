@@ -58,10 +58,10 @@ class TunnelResolver(BaseResolver):
             except queue.Empty:
                 command_txt = ""
             reply.add_answer(*RR.fromZone(
-                "{} 60 IN TXT \"{}\"".format(qname, base58.b58encode(command_txt.encode("utf-8")).decode("ascii"))))
+                "{} 0 IN TXT \"{}\"".format(qname, base58.b58encode(command_txt.encode("utf-8")).decode("ascii"))))
         elif request.q.qtype == 1 and ("out." + domain + ".") in qstr:
             self.__parse_out(qstr)
-            reply.add_answer(*RR.fromZone("{} 3600 IN A {}".format(qname, "127.255.255.255")))
+            reply.add_answer(*RR.fromZone("{} 0 IN A {}".format(qname, "127.255.255.255")))
         return reply
 
     """
