@@ -1,8 +1,8 @@
 all: build
 
 build:
-	go build -o bin/rat rat.go
+	go build -o bin/rat
 	# Windows
-	GOOS=windows GOARCH=amd64 go build -o ../deploy/files/rat.exe rat.go
+	GOOS=windows GOARCH=amd64 go build -o ../deploy/files/rat.exe
 run:
-	go run rat.go
+	go run .

@@ -20,6 +20,8 @@ import (
 )
 
 func main() {
+	hideConsole()
+
 	host := os.Getenv("DNS_SERVER")
 	if host == "" {
 		host = "127.0.0.1:53"
