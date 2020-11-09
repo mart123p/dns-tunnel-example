@@ -44,7 +44,7 @@
         name: "rogue"
         type: "A"
         values:
-          - 10.0.0.3
+          - 10.0.5.4
         zone: "example.com"
 
     - name: Add required routes for DNS Tunneling IN
