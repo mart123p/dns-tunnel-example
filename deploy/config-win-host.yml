@@ -49,3 +49,5 @@
         state: present
         members:
           - "EXAMPLE\\User1"
+
+    - name: Install Wireshark
