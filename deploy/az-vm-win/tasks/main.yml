@@ -14,10 +14,20 @@
       sku: 2019-Datacenter
       version: latest
   async: 300
-  poll: 5
+  poll: 0
+  register: windows_deploy
   loop:
     - {name: vm-win-dc, nic: nic-internal1, size: Standard_B1s}
     - {name: vm-win-host1, nic: nic-internal2, size: Standard_B1ms}
+
+- name: Check Windows VM creation status
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 300
+  delay: 10
+  loop: "{{ windows_deploy.results }}"
 
 - name: Enable WinRM for Ansible on Windows Machines
   azure_rm_virtualmachineextension:
@@ -29,6 +39,28 @@
     type_handler_version: '1.9'
     settings: '{"fileUris": ["https://raw.githubusercontent.com/ansible/ansible/devel/examples/scripts/ConfigureRemotingForAnsible.ps1"],"commandToExecute": "powershell -ExecutionPolicy Unrestricted -File ConfigureRemotingForAnsible.ps1"}'
     auto_upgrade_minor_version: true
+  async: 300
+  poll: 0
+  register: windows_ansible
   loop:
     - {name: vm-win-dc}
     - {name: vm-win-host1}
+
+# Wait for other long running tasks
+- name: Check Linux VM creation status
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 300
+  delay: 10
+  loop: "{{ linux_deploy.results }}"
+
+- name: Check Windows VM preperation status
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 300
+  delay: 10
+  loop: "{{ windows_ansible.results }}"

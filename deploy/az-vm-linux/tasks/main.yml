@@ -17,7 +17,8 @@
       sku: 18.04-LTS
       version: latest
   async: 300
-  poll: 5
+  poll: 0
+  register: linux_deploy
   loop:
-    - {name: vm-linux-bastation, nic: nic-internal3}
+    - {name: vm-linux-bastion, nic: nic-internal3}
     - {name: vm-linux-dns, nic: nic-external}
