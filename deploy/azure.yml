@@ -4,9 +4,9 @@
   connection: local
 
   vars:
-    resource_group: dns-tunneling-demo
+    resource_group: dns-tunnel-demo
     region: canadaeast
-    ssh_key: "{{ lookup('file', 'vm-linux/files/id_rsa.pub') }}"
+    ssh_key: "{{ lookup('file', 'creds/ssh/id_rsa.pub') }}"
 
   roles:
     - az-network
