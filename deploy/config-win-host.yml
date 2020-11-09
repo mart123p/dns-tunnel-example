@@ -42,3 +42,10 @@
       win_copy:
         src: files/secret.txt
         dest: "C:\\confidential\\acquisition.txt"
+
+    - name: Setting RDP permissions for User1
+      win_group_membership:
+        name: "Remote Desktop Users"
+        state: present
+        members:
+          - "EXAMPLE\\User1"
