@@ -3,7 +3,7 @@
   azure_rm_virtualmachine:
     resource_group: "{{ resource_group }}"
     name: "{{ item.name }}"
-    vm_size: Standard_B2s
+    vm_size: "{{ item.size }}"
     admin_username: azureuser
     admin_password: "{{ lookup('password', 'creds/' + item.name +' length=20') }}"
     network_interfaces: "{{ item.nic }}"
@@ -16,8 +16,8 @@
   async: 300
   poll: 5
   loop:
-    - {name: vm-win-dc, nic: nic-internal1}
-    - {name: vm-win-host1, nic: nic-internal2}
+    - {name: vm-win-dc, nic: nic-internal1, size: Standard_B1s}
+    - {name: vm-win-host1, nic: nic-internal2, size: Standard_B1ms}
 
 - name: Enable WinRM for Ansible on Windows Machines
   azure_rm_virtualmachineextension:
