@@ -17,7 +17,7 @@
   poll: 0
   register: windows_deploy
   loop:
-    - {name: vm-win-dc, nic: nic-internal1, size: Standard_B1s}
+    - {name: vm-win-dc, nic: nic-internal1, size: Standard_B1ms}
     - {name: vm-win-host1, nic: nic-internal2, size: Standard_B1ms}
 
 - name: Check Windows VM creation status
