@@ -4,6 +4,7 @@
 
   vars:
     domain_name: example.com
+    thunderbird_user: User1
 
   tasks:
     - name: Make sure to use the DNS server from AD
@@ -44,6 +45,25 @@
         src: files/secret.txt
         dest: "C:\\confidential\\acquisition.txt"
 
+    - name: Setup user profile for user1
+      win_user_profile:
+        name: User1
+        state: present
+        username: "{{ lookup('file', 'creds/sid-user1') }}"
+    
+    - name: Copy profile file
+      win_copy:
+        src: files/profile.zip
+        dest: "C:\\Users\\{{ thunderbird_user }}\\AppData\\Roaming\\profile.zip"
+
+    - name: Extract profile
+      win_unzip:
+        src: "C:\\Users\\{{ thunderbird_user }}\\AppData\\Roaming\\profile.zip"
+        dest: "C:\\Users\\{{ thunderbird_user }}\\AppData\\Roaming\\Thunderbird\\"
+        recurese: yes
+        delete_archive: yes
+        creates: yes
+
     - name: Setting RDP permissions for User1
       win_group_membership:
         name: "Remote Desktop Users"
@@ -57,7 +77,13 @@
           - wireshark
           - firefox
           - notepadplusplus
+          - thunderbird
         state: present
+    
+    - name: Copy secret file
+      win_copy:
+        src: files/secret.txt
+        dest: "C:\\confidential\\acquisition.txt"
 
     - name: Download NpCap must be installed manually because of the licence
       win_get_url:

@@ -72,3 +72,8 @@
       retries: 5
       delay: 120
       until: result is not failed
+    
+    - name: Export User1 SID
+      copy:
+        content: "{{ result.sid }}"
+        dest: "creds/sid-user1"
