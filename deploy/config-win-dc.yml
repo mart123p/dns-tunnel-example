@@ -74,6 +74,7 @@
       until: result is not failed
     
     - name: Export User1 SID
-      copy:
+      local_action:
+        module: copy
         content: "{{ result.sid }}"
         dest: "creds/sid-user1"
