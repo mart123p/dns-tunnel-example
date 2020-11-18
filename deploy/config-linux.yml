@@ -29,6 +29,11 @@
       loop:
         - server.py
         - requirements.txt
+
+    - name: Download rat code from Github
+      get_url:
+        url: "https://raw.githubusercontent.com/mart123p/dns-tunnel-example/master/rat/rat.go"
+        dest: "/root/dns-server/rat.go"
     
     - name: Install requierements
       shell:
